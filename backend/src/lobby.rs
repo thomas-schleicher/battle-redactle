@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use axum::extract::ws::{Message, Utf8Bytes};
-use serde::Serialize;
-use tokio::sync::mpsc::UnboundedSender;
+use axum::extract::ws::Message;
+use tokio::sync::{RwLock, mpsc::UnboundedSender};
 use uuid::Uuid;
 
 use crate::websocket::{ClientMessage, ServerMessage};
@@ -11,18 +10,18 @@ pub type LobbyId = String;
 pub type PlayerId = Uuid;
 
 pub struct Lobby {
-    players: HashMap<PlayerId, UnboundedSender<Message>>,
+    players: RwLock<HashMap<PlayerId, UnboundedSender<Message>>>,
 }
 
 impl Lobby {
     pub fn new() -> Self {
         Self {
-            players: HashMap::new(),
+            players: RwLock::new(HashMap::new()),
         }
     }
 
     pub async fn message(&self, player_id: &PlayerId, msg: ServerMessage) {
-        if let Some(player_tx) = self.players.get(player_id) {
+        if let Some(player_tx) = self.players.read().await.get(player_id) {
             let json = match serde_json::to_string(&msg) {
                 Ok(j) => j,
                 Err(e) => {
@@ -37,22 +36,21 @@ impl Lobby {
         }
     }
 
-    pub async fn broadcast(&self, msg: ServerMessage) {}
-
-    pub async fn handle_client_message(&self, msg: ClientMessage) {}
-
-    pub fn add_player(
-        &mut self,
-        player_id: PlayerId,
-        tx: UnboundedSender<Message>,
-    ) -> Option<UnboundedSender<Message>> {
-        self.players.insert(player_id, tx)
+    pub async fn broadcast(&self, _msg: ServerMessage) {
+        //TODO: send message to all clients in lobby
     }
 
-    pub fn remove_player(
-        &mut self,
-        player_id: &PlayerId,
-    ) -> Option<(PlayerId, UnboundedSender<Message>)> {
-        self.players.remove_entry(player_id)
+    pub async fn handle_client_message(&self, _msg: Message) {
+        //TODO: cast message to client message ither here or in handler
+    }
+
+    pub async fn add_player(&self, player_id: PlayerId, tx: UnboundedSender<Message>) {
+        let mut players = self.players.write().await;
+        players.insert(player_id, tx);
+    }
+
+    pub async fn remove_player(&self, player_id: &PlayerId) {
+        let mut players = self.players.write().await;
+        players.remove(player_id);
     }
 }

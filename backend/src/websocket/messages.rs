@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::state::{LobbyId, PlayerId};
+use crate::lobby::{LobbyId, PlayerId};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
